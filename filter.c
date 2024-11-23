@@ -6,22 +6,30 @@
 /*   By: jim <jim@student.42.fr>                    +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2024/11/23 15:07:05 by jim               #+#    #+#             */
-/*   Updated: 2024/11/23 15:14:19 by jim              ###   ########.fr       */
+/*   Updated: 2024/11/23 17:13:39 by jim              ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define BUFFER_SIZE 1024
+#include <errno.h>
+#include <fcntl.h>
+#define BUFFER_SIZE 9999
 
 void	print_error(char *str)
 {
-	perror(str);
+	if (errno == ENOMEM)
+		fprintf(stderr, "%s: Out of memory\n", str);
+	if (errno == EIO)
+		fprintf(stderr, "%s: Input/output error\n", str);
+	if (errno == EBADF)
+		fprintf(stderr, "%s: Bad file descriptor\n", str);
+	else
+		fprintf(stderr, "%s: something broken\n", str);
 }
 
-char	*deletion(char *str,char *filter)
+char	*deletion(char *str, char *filter)
 {
 	int	i;
 	int	j;
@@ -53,19 +61,38 @@ int	main(int ac, char **av)
 {
 	char	*str;
 
-	if (ac == 2)
+	if (ac != 2)
+		return (fprintf(stderr, "Error: Incorrect number of arguments\n"),1);
+	str = (char *)malloc(BUFFER_SIZE);
+	// if (open(0, O_RDONLY) < 0)
+	// 	printf("KC\n");
+	if (!str)
 	{
-		str = (char *)malloc(sizeof(char) * BUFFER_SIZE);
-		if (!str)
-			return (print_error("Error: Memory allocation failed\n"), 1);
-		if (!fgets(str, BUFFER_SIZE, stdin))
-			return (print_error("Error: Read error\n"), 1);
-		deletion(str, av[1]);
-		if (fputs(str, stdout) == EOF)
-			return (print_error("Error: Write error\n"), 1);
-		free(str);
+		errno = ENOMEM;
+		print_error("Error: Memory allocation failed");
+		return (1);
 	}
-	else
-		return (fprintf(stderr, "Error: Incorrect number of arguments\n"), 1);
+	if (!fgets(str, BUFFER_SIZE, stdin)) // BUG fgets wait for something, i dont know why but well see later
+	{
+		printf("sdas\n");
+		if (feof(stdin))
+			print_error("Error: End of file reached unexpectedly");
+		else
+		{
+			errno = EIO;
+			print_error("Error: Read error");
+		}
+		free(str);
+		exit(1);
+	}
+	deletion(str, av[1]);
+	if (fputs(str, stdout) == EOF)
+	{
+		errno = EBADF;
+		print_error("Error: Write error");
+		free(str);
+		exit(1);
+	}
+	free(str);
 	return (0);
 }
