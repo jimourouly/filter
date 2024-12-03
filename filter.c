@@ -1,98 +1,81 @@
-/* ************************************************************************** */
-/*                                                                            */
-/*                                                        :::      ::::::::   */
-/*   filter.c                                           :+:      :+:    :+:   */
-/*                                                    +:+ +:+         +:+     */
-/*   By: jim <jim@student.42.fr>                    +#+  +:+       +#+        */
-/*                                                +#+#+#+#+#+   +#+           */
-/*   Created: 2024/11/23 15:07:05 by jim               #+#    #+#             */
-/*   Updated: 2024/11/23 17:13:39 by jim              ###   ########.fr       */
-/*                                                                            */
-/* ************************************************************************** */
-
-#include <stdio.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
-#include <errno.h>
-#include <fcntl.h>
-#define BUFFER_SIZE 9999
+#include <stdlib.h>
+#include <stdio.h>
 
-void	print_error(char *str)
+#define BUFFER_SIZE 1024
+
+void	handle_error(const char *message)
 {
-	if (errno == ENOMEM)
-		fprintf(stderr, "%s: Out of memory\n", str);
-	if (errno == EIO)
-		fprintf(stderr, "%s: Input/output error\n", str);
-	if (errno == EBADF)
-		fprintf(stderr, "%s: Bad file descriptor\n", str);
-	else
-		fprintf(stderr, "%s: something broken\n", str);
+	perror(message);
+	exit(1);
 }
 
-char	*deletion(char *str, char *filter)
+//ft_strcmp
+int	ft_strcmp(const char *buffer, const char *search, size_t search_len)
 {
-	int	i;
-	int	j;
-	int	len;
-	int	k;
-
-	i = 0;
-	len = strlen(filter);
-	while (str[i])
+	for (size_t i = 0; i < search_len; i++)
 	{
-		if (str[i] == filter[0])
+		if (buffer[i] != search[i])
+			return (0);
+	}
+	return 1;
+}
+
+int	main(int argc, char **argv)
+{
+	ssize_t	bytes_read;
+	size_t	j;
+	size_t	search_len;
+	size_t	i;
+	char	*buffer;
+	char	*search;
+
+	if (argc != 2 || strlen(argv[1]) == 0)
+	{
+		printf("Error: Invalid arguments\n");
+		return 1;
+	}
+	search = argv[1];
+	search_len = strlen(search);
+	buffer = malloc(BUFFER_SIZE);
+	if (!buffer)
+		handle_error("malloc");
+	while ((bytes_read = read(STDIN_FILENO, buffer, BUFFER_SIZE)) > 0)
+	{
+		i = 0;
+		while (i < (size_t)bytes_read)
 		{
-			j = 0;
-			while (str[i + j] == filter[j] && filter[j] != '\0')
-				j++;
-			if (j == len)
+			if (i + search_len <= (size_t)bytes_read && ft_strcmp(&buffer[i], search, search_len))
 			{
-				k = i;
-				while (k < i + len)
-					str[k++] = '*';
+				j = 0;
+				while (j < search_len)
+				{
+					if (write(STDOUT_FILENO, "*", 1) == -1)
+					{
+						free(buffer);
+						handle_error("write");
+					}
+					j++;
+				}
+				i += search_len;
+			}
+			else
+			{
+				if (write(STDOUT_FILENO, &buffer[i], 1) == -1)
+				{
+					free(buffer);
+					handle_error("write");
+				}
+				i++;
 			}
 		}
-		i++;
 	}
-	return (str);
-}
-
-int	main(int ac, char **av)
-{
-	char	*str;
-
-	if (ac != 2)
-		return (fprintf(stderr, "Error: Incorrect number of arguments\n"),1);
-	str = (char *)malloc(BUFFER_SIZE);
-	// if (open(0, O_RDONLY) < 0)
-	// 	printf("KC\n");
-	if (!str)
+	if (bytes_read == -1)
 	{
-		errno = ENOMEM;
-		print_error("Error: Memory allocation failed");
-		return (1);
+		free(buffer);
+		handle_error("read");
 	}
-	if (!fgets(str, BUFFER_SIZE, stdin)) // BUG fgets wait for something, i dont know why but well see later
-	{
-		printf("sdas\n");
-		if (feof(stdin))
-			print_error("Error: End of file reached unexpectedly");
-		else
-		{
-			errno = EIO;
-			print_error("Error: Read error");
-		}
-		free(str);
-		exit(1);
-	}
-	deletion(str, av[1]);
-	if (fputs(str, stdout) == EOF)
-	{
-		errno = EBADF;
-		print_error("Error: Write error");
-		free(str);
-		exit(1);
-	}
-	free(str);
-	return (0);
+	free(buffer);
+	return 0;
 }
