@@ -1,80 +1,79 @@
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <errno.h>
 
-#define BUFFER_SIZE 1024
+#ifndef BUFFER_SIZE
+# define BUFFER_SIZE 1024
+#endif
 
-void	handle_error(const char *message)
+int	ft_strncmp(const char *s1, const char *s2, size_t n)
 {
-	perror(message);
-	exit(1);
-}
-
-//ft_strcmp
-int	ft_strcmp(const char *buffer, const char *search, size_t search_len)
-{
-	for (size_t i = 0; i < search_len; i++)
-	{
-		if (buffer[i] != search[i])
-			return (0);
-	}
-	return 1;
-}
-
-int	main(int argc, char **argv)
-{
-	ssize_t	bytes_read;
-	size_t	j;
-	size_t	search_len;
 	size_t	i;
-	char	*buffer;
-	char	*search;
 
-	if (argc != 2 || strlen(argv[1]) == 0)
+	i = 0;
+	while ((s1[i] || s2[i]) && i < n)
 	{
-		printf("Error: Invalid arguments\n");
+		if ((unsigned char) s1[i] != (unsigned char) s2[i])
+		{
+			return ((unsigned char) s1[i] - (unsigned char) s2[i]);
+		}
+		i++;
+	}
+	return (0);
+}
+
+void print_error(char *msg)
+{
+	perror(msg);
+}
+
+int main(int ac, char **av)
+{
+	if (ac != 2)
+		return 1;
+
+	char *s = av[1];
+	int s_len = strlen(s);
+
+	if (s_len == 0)
+		return 1;
+
+	char *buffer = malloc(BUFFER_SIZE);
+	if (!buffer)
+	{
+		print_error("Error : malloc");
 		return 1;
 	}
-	search = argv[1];
-	search_len = strlen(search);
-	buffer = malloc(BUFFER_SIZE);
-	if (!buffer)
-		handle_error("malloc");
-	while ((bytes_read = read(STDIN_FILENO, buffer, BUFFER_SIZE)) > 0)
-	{
-		i = 0;
-		while (i < (size_t)bytes_read)
+
+	int read_b;
+	while((read_b = read(STDIN_FILENO, buffer, BUFFER_SIZE)) > 0){
+		int i = 0;
+		while(i < read_b)
 		{
-			if (i + search_len <= (size_t)bytes_read && ft_strcmp(&buffer[i], search, search_len))
-			{
-				j = 0;
-				while (j < search_len)
+			if (i + s_len <= read_b && ft_strncmp(&buffer[i], s, s_len) ==0){
+				int j =0;
+				while(j < s_len)
 				{
-					if (write(STDOUT_FILENO, "*", 1) == -1)
-					{
-						free(buffer);
-						handle_error("write");
-					}
+					printf("*");
 					j++;
 				}
-				i += search_len;
+				i += s_len;
 			}
 			else
 			{
-				if (write(STDOUT_FILENO, &buffer[i], 1) == -1)
-				{
-					free(buffer);
-					handle_error("write");
-				}
+				printf("%c", buffer[i]);
 				i++;
 			}
 		}
+
 	}
-	if (bytes_read == -1)
+	if (read_b == -1)
 	{
 		free(buffer);
-		handle_error("read");
+		print_error("Error: read");
+		return 1;
 	}
 	free(buffer);
 	return 0;
